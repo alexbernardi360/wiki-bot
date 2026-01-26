@@ -1,6 +1,7 @@
-import { Controller, Get, Header, StreamableFile } from '@nestjs/common';
-import { ImageGeneratorService } from 'src/image-generator/image-generator.service';
-import { WikipediaService, WikiResponse } from './wikipedia.service';
+import { Controller, Get, Header, Query, StreamableFile } from '@nestjs/common';
+import type { WikiTheme } from '../image-generator/image-generator.service';
+import { ImageGeneratorService } from '../image-generator/image-generator.service';
+import { WikipediaService } from './wikipedia.service';
 
 @Controller('wikipedia')
 export class WikipediaController {
@@ -10,22 +11,24 @@ export class WikipediaController {
   ) {}
 
   @Get('random')
-  async getRandom(): Promise<WikiResponse> {
+  async getRandom() {
     return await this.wikipediaService.getRandomPage();
   }
 
   @Get('random/image-preview')
-  @Header('Content-Type', 'image/png') // Dice al browser: "Questa è un'immagine"
-  @Header('Content-Disposition', 'inline') // Dice al browser: "Mostrala, non scaricarla"
-  async getImagePreview(): Promise<StreamableFile> {
+  @Header('Content-Type', 'image/png')
+  @Header('Content-Disposition', 'inline')
+  async getImagePreview(
+    @Query('theme') theme: WikiTheme,
+  ): Promise<StreamableFile> {
     const data = await this.wikipediaService.getRandomPage();
 
     const imageBuffer = await this.imageGenerator.generatePostImage({
       title: data.title,
       extract_html: data.extract_html,
+      theme: theme,
     });
 
-    // 3. Ritorniamo il file come stream
     return new StreamableFile(imageBuffer);
   }
 }

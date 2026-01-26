@@ -1,104 +1,142 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import nodeHtmlToImage from 'node-html-to-image';
+
+export type WikiTheme = 'light' | 'dark';
 
 interface WikiPostData {
   title: string;
   extract_html: string;
+  theme?: WikiTheme;
 }
 
 @Injectable()
 export class ImageGeneratorService {
   async generatePostImage(data: WikiPostData): Promise<Buffer> {
-    // Il template HTML/CSS per l'immagine
-    // Usiamo tripla graffa {{{ }}} per l'HTML così mantiene i grassetti di Wikipedia
-    const htmlTemplate = `
-<html>
-<head>
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
-    
-    body {
-        width: 1080px;
-        height: 1080px;
-        margin: 0;
-        padding: 0;
-        background-color: #1a1a1a;
-        color: white;
-        font-family: 'Montserrat', sans-serif;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-    }
+    try {
+      const theme = data.theme || 'light';
 
-    .container {
-        padding: 80px;
-        border: 10px solid #fff;
-        width: 800px;
-        height: 800px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        background: linear-gradient(145deg, #1e1e1e, #2a2a2a);
-        box-shadow: 20px 20px 60px #111, -20px -20px 60px #262626;
-    }
+      // LOGICA FONT
+      const textLength = data.extract_html.replace(/<[^>]*>?/gm, '').length;
+      let fontSize = '40px';
+      if (textLength > 500) fontSize = '32px';
 
-    h1 {
-        font-size: 60px;
-        font-weight: 900;
-        text-transform: uppercase;
-        margin-bottom: 40px;
-        color: #fca311; /* Un bel giallo/arancio */
-        line-height: 1.2;
-    }
+      // LOGICA COLORI (Semplificata: niente più sfondo canvas o ombre esterne)
+      const colors =
+        theme === 'dark'
+          ? {
+              cardBg: '#202122', // Scuro
+              textMain: '#eaecf0', // Bianco sporco
+              textTitle: '#ffffff', // Bianco puro
+              border: '#a2a9b1', // Grigio bordo
+            }
+          : {
+              cardBg: '#ffffff', // Bianco puro
+              textMain: '#202122', // Nero fumo
+              textTitle: '#000000', // Nero puro
+              border: '#a2a9b1', // Grigio bordo
+            };
 
-    .content {
-        font-size: 32px;
-        line-height: 1.6;
-        font-weight: 400;
-    }
+      const htmlTemplate = `
+      <html>
+        <head>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Roboto:wght@400;500&display=swap');
+            
+            /* Reset base del body per evitare margini indesiderati */
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: sans-serif;
+              /* Nessun colore di sfondo, nessuna dimensione fissa qui */
+            }
 
-    /* Stili per l'HTML di Wikipedia */
-    b, strong {
-        color: #e5e5e5;
-        font-weight: 700;
-    }
-    
-    .footer {
-        margin-top: 60px;
-        font-size: 20px;
-        opacity: 0.5;
-        text-transform: uppercase;
-        letter-spacing: 5px;
-    }
-    </style>
-</head>
-<body>
-    <div class="container">
-    <h1>{{title}}</h1>
-    <div class="content">
-        {{{extract_html}}} 
-    </div>
-    <div class="footer">WikiBot Daily</div>
-    </div>
-</body>
-</html>
-    `;
+            /* LA CARD È ORA L'UNICO ELEMENTO CHE CONTA */
+            .wiki-card {
+              /* Larghezza fissa per mantenere l'aspetto da "popup" alta risoluzione */
+              width: 800px; 
+              /* L'altezza sarà automatica in base al contenuto */
+              
+              background-color: {{colors.cardBg}};
+              color: {{colors.textMain}};
+              border: 1px solid {{colors.border}};
+              /* Wikipedia usa angoli leggermente stondati */
+              border-radius: 2px; 
+              
+              /* Flex column per organizzare titolo e contenuto */
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+              position: relative;
+              padding-bottom: 40px; 
+            }
 
-    // Generazione immagine
-    const image = await nodeHtmlToImage({
-      html: htmlTemplate,
-      content: {
-        title: data.title,
-        extract_html: data.extract_html,
-      },
-      puppeteerArgs: { args: ['--no-sandbox'] }, // Necessario per Docker/Linux
-      type: 'png',
-      quality: 100,
-      encoding: 'binary', // Ritorna un Buffer, non salva su file
-    });
+            .content-container {
+              padding: 50px 60px;
+            }
 
-    return image as Buffer;
+            h1 {
+              font-family: 'Noto Serif', 'Linux Libertine', 'Georgia', serif;
+              font-weight: 400;
+              font-size: 64px;
+              margin: 0 0 25px 0;
+              line-height: 1.1;
+              color: {{colors.textTitle}};
+            }
+
+            .extract {
+              font-family: 'Helvetica Neue', Helvetica, 'Roboto', Arial, sans-serif;
+              color: {{colors.textMain}};
+              line-height: 1.6;
+            }
+
+            .extract p { margin: 0; }
+            
+            .extract b, .extract strong {
+              font-weight: 700;
+              color: {{colors.textTitle}};
+            }
+          </style>
+        </head>
+        <body>
+          <div class="wiki-card">
+            <div class="content-container">
+              <h1>{{title}}</h1>
+              <div class="extract" style="font-size: {{fontSize}}">
+                {{{extract_html}}}
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+      `;
+
+      const image = await nodeHtmlToImage({
+        html: htmlTemplate,
+        content: {
+          title: data.title,
+          extract_html: data.extract_html,
+          fontSize: fontSize,
+          colors: colors,
+        },
+        // 1. Ritaglia esattamente il div della card
+        selector: '.wiki-card',
+
+        // 2. Rende trasparente tutto ciò che è fuori (utile per gli angoli stondati)
+        transparent: true,
+
+        puppeteerArgs: {
+          // 3. Qui lasciamo solo gli argomenti di Chrome
+          args: ['--no-sandbox'],
+        },
+        type: 'png',
+      });
+
+      return image as Buffer;
+    } catch (error) {
+      console.error('Errore generazione immagine:', error);
+      throw new InternalServerErrorException(
+        'Errore nella generazione del post',
+      );
+    }
   }
 }
