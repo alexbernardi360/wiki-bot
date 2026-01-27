@@ -11,8 +11,8 @@ export interface WikiResponse {
   title: string;
   extract: string;
   extract_html: string;
-  originalimage?: { source: string };
-  thumbnail?: { source: string };
+  originalimage?: { source: string; width: number; height: number };
+  thumbnail?: { source: string; width: number; height: number };
 }
 
 @Injectable()
