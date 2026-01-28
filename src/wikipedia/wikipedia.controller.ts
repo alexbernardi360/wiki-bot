@@ -37,4 +37,28 @@ export class WikipediaController {
 
     return new StreamableFile(imageBuffer);
   }
+
+  @Get('image-preview-by-title')
+  @Header('Content-Type', 'image/png')
+  @Header('Content-Disposition', 'inline')
+  async getImagePreviewByTitle(
+    @Query('title') title: string,
+    @Query('theme') theme: WikiTheme,
+  ): Promise<StreamableFile> {
+    const data = await this.wikipediaService.getPageSummary(title);
+
+    // Estraiamo URL e dimensioni (gestendo il caso in cui thumbnail manchi)
+    const imgData = data.originalimage;
+
+    const imageBuffer = await this.imageGenerator.generatePostImage({
+      title: data.title,
+      extract_html: data.extract_html,
+      imageUrl: imgData?.source,
+      imageWidth: imgData?.width,
+      imageHeight: imgData?.height,
+      theme: theme,
+    });
+
+    return new StreamableFile(imageBuffer);
+  }
 }
