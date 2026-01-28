@@ -65,4 +65,29 @@ export class WikipediaService {
 
     return text.replace(/\s+/g, ' ').trim();
   }
+
+  /** Fetches the summary of a specific Wikipedia page by title. */
+  async getPageSummary(title: string): Promise<WikiResponse> {
+    try {
+      const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${title}`;
+      const { data } = await firstValueFrom(
+        this.httpService.get<WikiResponse>(url, {
+          headers: {
+            'User-Agent': this.userAgent,
+            Accept: 'application/json',
+          },
+        }),
+      );
+
+      return {
+        ...data,
+        extract: this.cleanText(data.extract),
+      };
+    } catch (error) {
+      console.error(`Error fetching summary for title "${title}":`, error);
+      throw new InternalServerErrorException(
+        `Failed to fetch Wikipedia page summary for title: ${title}`,
+      );
+    }
+  }
 }
