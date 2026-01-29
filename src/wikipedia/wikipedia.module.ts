@@ -8,5 +8,6 @@ import { ImageGeneratorModule } from 'src/image-generator/image-generator.module
   imports: [HttpModule, ImageGeneratorModule],
   controllers: [WikipediaController],
   providers: [WikipediaService],
+  exports: [WikipediaService],
 })
 export class WikipediaModule {}
