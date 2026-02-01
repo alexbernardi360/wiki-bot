@@ -1,10 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
-
-import { ConfigService } from '@nestjs/config';
-import * as axiosPkg from 'axios/package.json';
-import * as pkg from '../../package.json';
+import { getUserAgent } from '../common/utils/user-agent';
 
 /** Wikipedia API response structure */
 export interface WikiResponse {
@@ -20,17 +17,9 @@ export class WikipediaService {
   /** Official Wikipedia API endpoint. */
   private readonly WIKI_API =
     'https://en.wikipedia.org/api/rest_v1/page/random/summary';
-  private readonly userAgent: string;
+  private readonly userAgent = getUserAgent();
 
-  constructor(
-    private readonly httpService: HttpService,
-    configService: ConfigService,
-  ) {
-    const contactEmail =
-      configService.get<string>('WIKI_CONTACT_EMAIL') || 'no-email-set';
-
-    this.userAgent = `${pkg.name}/${pkg.version} (${contactEmail}) ${axiosPkg.name}/${axiosPkg.version}`;
-  }
+  constructor(private readonly httpService: HttpService) {}
 
   /** Fetches a random page summary from Wikipedia. */
   async getRandomPage(): Promise<WikiResponse> {

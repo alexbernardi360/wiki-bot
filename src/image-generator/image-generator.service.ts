@@ -1,8 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import nodeHtmlToImage from 'node-html-to-image';
-import * as axiosPkg from 'axios/package.json';
-import * as pkg from '../../package.json';
+import { getUserAgent } from '../common/utils/user-agent';
 
 export type WikiTheme = 'light' | 'dark';
 
@@ -17,14 +15,7 @@ interface WikiPostData {
 
 @Injectable()
 export class ImageGeneratorService {
-  private readonly userAgent: string;
-
-  constructor(configService: ConfigService) {
-    const contactEmail =
-      configService.get<string>('WIKI_CONTACT_EMAIL') || 'no-email-set';
-
-    this.userAgent = `${pkg.name}/${pkg.version} (${contactEmail}) ${axiosPkg.name}/${axiosPkg.version}`;
-  }
+  private readonly userAgent = getUserAgent();
 
   async generatePostImage(data: WikiPostData): Promise<Buffer> {
     try {
