@@ -1,0 +1,15 @@
+services:
+  wiki-bot:
+    image: ghcr.io/alexbernardi360/wiki-bot:latest
+    # build: . # Uncomment if you want to build locally
+    container_name: wiki-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - sqlite_data:/app/data
+    ports:
+      - '3000:3000'
+
+volumes:
+  sqlite_data:
