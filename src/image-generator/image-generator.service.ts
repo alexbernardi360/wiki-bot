@@ -1,5 +1,8 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import nodeHtmlToImage from 'node-html-to-image';
+import * as axiosPkg from 'axios/package.json';
+import * as pkg from '../../package.json';
 
 export type WikiTheme = 'light' | 'dark';
 
@@ -14,6 +17,15 @@ interface WikiPostData {
 
 @Injectable()
 export class ImageGeneratorService {
+  private readonly userAgent: string;
+
+  constructor(configService: ConfigService) {
+    const contactEmail =
+      configService.get<string>('WIKI_CONTACT_EMAIL') || 'no-email-set';
+
+    this.userAgent = `${pkg.name}/${pkg.version} (${contactEmail}) ${axiosPkg.name}/${axiosPkg.version}`;
+  }
+
   async generatePostImage(data: WikiPostData): Promise<Buffer> {
     try {
       const theme = data.theme || 'light';
@@ -169,7 +181,15 @@ export class ImageGeneratorService {
         },
         selector: '.wiki-card',
         transparent: true,
-        puppeteerArgs: { args: ['--no-sandbox'] },
+        puppeteerArgs: {
+          args: ['--no-sandbox'],
+        },
+        beforeScreenshot: async (page) => {
+          await page.setUserAgent(this.userAgent);
+          await page.setExtraHTTPHeaders({
+            'User-Agent': this.userAgent,
+          });
+        },
         type: 'png',
       });
 
