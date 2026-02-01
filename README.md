@@ -61,16 +61,32 @@ This project is licensed under the MIT License - see the [MIT License](LICENSE) 
 
 ## 🐳 Docker (Recommended for production/RPi)
 
-### Build and Run
+### Deploying to Raspberry Pi (Pre-built image)
 
-1. Make sure you have Docker and Docker Compose installed.
-2. Create `docker-compose.yml` (already provided) and `.env`.
-3. Run the container:
+The fastest way to deploy the bot on a Raspberry Pi is using the pre-built image from GitHub Container Registry (GHCR):
+
+1. Copy the `docker-compose.yml` file and create a `.env` file on your Raspberry Pi.
+2. Pull the latest image and start the container:
    ```bash
+   docker-compose pull
    docker-compose up -d
    ```
 
-The application will be available at `http://localhost:3000`.
+### Local Development or Manual Build
+
+If you prefer to compile the image locally:
+
+1. Uncomment the `build: .` line in your `docker-compose.yml` file.
+2. Run the build and start command:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+### 🚀 Continuous Deployment
+
+Every time a new **Release** is published on GitHub, a GitHub Action automatically builds the Docker image for both `amd64` and `arm64` architectures and pushes it to **GitHub Container Registry (GHCR)**.
+
+Image URL: `ghcr.io/alexbernardi360/wiki-bot:latest`
 
 ### Persistence
 
