@@ -29,11 +29,13 @@ A robust NestJS automation bot designed to fetch, process, and distribute conten
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/your-username/wiki-bot.git
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
@@ -46,9 +48,10 @@ A robust NestJS automation bot designed to fetch, process, and distribute conten
 ### Usage
 
 Start the development server
-   ```bash
-   npm run start:dev
-   ```
+
+```bash
+npm run start:dev
+```
 
 Test the Wikipedia endpoint: `GET http://localhost:3000/wikipedia/random`
 
@@ -56,3 +59,19 @@ Test the Wikipedia endpoint: `GET http://localhost:3000/wikipedia/random`
 
 This project is licensed under the MIT License - see the [MIT License](LICENSE) file for details.
 
+## 🐳 Docker (Recommended for production/RPi)
+
+### Build and Run
+
+1. Make sure you have Docker and Docker Compose installed.
+2. Create `docker-compose.yml` (already provided) and `.env`.
+3. Run the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+The application will be available at `http://localhost:3000`.
+
+### Persistence
+
+The `docker-compose.yml` defines a volume `sqlite_data` mounted to `/app/data` to persist SQLite database files.

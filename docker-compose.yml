@@ -1,0 +1,15 @@
+services:
+  wiki-bot:
+    build: .
+    image: wiki-bot:latest
+    container_name: wiki-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - sqlite_data:/app/data
+    ports:
+      - '3000:3000'
+
+volumes:
+  sqlite_data:
