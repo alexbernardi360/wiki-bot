@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import nodeHtmlToImage from 'node-html-to-image';
+import { getUserAgent } from '../common/utils/user-agent';
 
 export type WikiTheme = 'light' | 'dark';
 
@@ -14,6 +15,8 @@ interface WikiPostData {
 
 @Injectable()
 export class ImageGeneratorService {
+  private readonly userAgent = getUserAgent();
+
   async generatePostImage(data: WikiPostData): Promise<Buffer> {
     try {
       const theme = data.theme || 'light';
@@ -169,7 +172,15 @@ export class ImageGeneratorService {
         },
         selector: '.wiki-card',
         transparent: true,
-        puppeteerArgs: { args: ['--no-sandbox'] },
+        puppeteerArgs: {
+          args: ['--no-sandbox'],
+        },
+        beforeScreenshot: async (page) => {
+          await page.setUserAgent(this.userAgent);
+          await page.setExtraHTTPHeaders({
+            'User-Agent': this.userAgent,
+          });
+        },
         type: 'png',
       });
 
