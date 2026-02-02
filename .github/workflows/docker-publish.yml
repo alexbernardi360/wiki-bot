@@ -1,8 +1,9 @@
 name: Build and Publish Docker Image
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 env:
@@ -10,10 +11,30 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  create-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      html_url: ${{ steps.create_release.outputs.html_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  build-and-push:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
       packages: write
 
     steps:
@@ -41,9 +62,10 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push Docker image
+        id: build_push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -53,3 +75,19 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Update Release with Docker info
+        uses: softprops/action-gh-release@v2
+        with:
+          id: ${{ needs.create-release.outputs.release_id }}
+          append_body: true
+          body: |
+
+            ## Docker Image
+            The Docker image for this release is available at:
+            `ghcr.io/${{ github.repository }}:${{ github.ref_name }}`
+
+            To pull this image:
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
