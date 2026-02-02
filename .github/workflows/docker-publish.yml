@@ -79,7 +79,7 @@ jobs:
       - name: Update Release with Docker info
         uses: softprops/action-gh-release@v2
         with:
-          id: ${{ needs.create-release.outputs.release_id }}
+          tag_name: ${{ github.ref_name }}
           append_body: true
           body: |
 
