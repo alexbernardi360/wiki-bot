@@ -47,7 +47,7 @@ export class WikipediaService {
   }
 
   /**
-   * Pulisce il testo da artefatti tipici di Wikipedia
+   * Cleans text from typical Wikipedia artifacts
    */
   private cleanText(text: string): string {
     if (!text) return '';

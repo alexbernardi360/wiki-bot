@@ -23,10 +23,10 @@ export class ImageGeneratorService {
 
       const width = data.imageWidth || 0;
       const height = data.imageHeight || 0;
-      // Landscape se larghezza > altezza
+      // Landscape if width > height
       const isLandscape = width > height;
 
-      // Calcolo font size
+      // Calculate font size
       const textLength = data.extract_html.replace(/<[^>]*>?/gm, '').length;
       let fontSize = '34px';
       if (textLength > 400) fontSize = '26px';
@@ -56,7 +56,7 @@ export class ImageGeneratorService {
 
             .wiki-card {
               width: 850px;
-              /* Se è landscape, l'altezza si adatta. Se è portrait, flex gestisce tutto. */
+              /* If it's landscape, height adapts. If portrait, flex handles it. */
               background-color: {{colors.cardBg}};
               color: {{colors.textMain}};
               border: 1px solid {{colors.border}};
@@ -65,14 +65,14 @@ export class ImageGeneratorService {
               position: relative;
             }
 
-            /* --- LAYOUT GENERALE --- */
-            /* Usiamo Flexbox per affiancare testo e immagine verticale */
+            /* --- GENERAL LAYOUT --- */
+            /* Use Flexbox to align text and vertical image */
             .flex-container {
               display: flex;
               flex-direction: row; /* Riga: Testo a sx, Immagine a dx */
               width: 100%;
-              /* Importante: stretch fa sì che l'immagine sia alta quanto il testo */
-              align-items: stretch; 
+              /* Important: stretch ensures the image matches text height */
+              align-items: stretch;
             }
 
             .text-column {
@@ -80,24 +80,24 @@ export class ImageGeneratorService {
               padding: 40px 50px;
               display: flex;
               flex-direction: column;
-              justify-content: center; /* Centra verticalmente il testo se c'è spazio */
+              justify-content: center; /* Vertically center text if there's space */
             }
 
-            /* --- STILE PORTRAIT (Immagine Laterale "Split") --- */
+            /* --- PORTRAIT STYLE (Side Image "Split") --- */
             .img-col-portrait {
-              width: 40%; /* L'immagine occupa il 40% della larghezza della card */
+              width: 40%; /* Image takes up 40% of the card width */
               flex-shrink: 0; /* Non si rimpicciolisce mai */
               
-              /* TRUCCO CSS PER IMMAGINI DI COPERTINA PERFETTE */
+              /* CSS TRICK FOR PERFECT COVER IMAGES */
               background-image: url('{{imageUrl}}');
-              background-size: cover;    /* Ritaglia l'immagine per riempire il box */
-              background-position: center; /* Centra il soggetto */
+              background-size: cover;    /* Crop image to fill the box */
+              background-position: center; /* Center the subject */
               background-repeat: no-repeat;
               
-              border-left: 1px solid {{colors.border}}; /* Separatore sottile */
+              border-left: 1px solid {{colors.border}}; /* Thin separator */
             }
 
-            /* --- STILE LANDSCAPE (Banner in alto) --- */
+            /* --- LANDSCAPE STYLE (Top Banner) --- */
             .img-landscape {
               width: 100%;
               height: 400px; 
@@ -109,7 +109,7 @@ export class ImageGeneratorService {
             h1 {
               font-family: 'Noto Serif', 'Linux Libertine', 'Georgia', serif;
               font-weight: 400;
-              font-size: 50px; /* Leggermente ridotto per stare bene nella colonna */
+              font-size: 50px; /* Slightly reduced to fit well in column */
               margin: 0 0 20px 0;
               line-height: 1.1;
               color: {{colors.textTitle}};
@@ -191,8 +191,8 @@ export class ImageGeneratorService {
 
       return image as Buffer;
     } catch (error) {
-      console.error('Errore generazione:', error);
-      throw new InternalServerErrorException('Errore generazione post');
+      console.error('Generation error:', error);
+      throw new InternalServerErrorException('Post generation error');
     }
   }
 }
