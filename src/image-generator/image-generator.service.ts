@@ -172,13 +172,17 @@ export class ImageGeneratorService {
         },
         selector: '.wiki-card',
         transparent: true,
+        timeout: 90000,
         puppeteerArgs: {
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process',
           ],
-          timeout: 60000,
+          timeout: 90000,
         },
         beforeScreenshot: async (page) => {
           await page.setUserAgent(this.userAgent);
