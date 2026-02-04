@@ -45,24 +45,25 @@ export class TelegramUpdate {
     if (!this.isAdmin(ctx)) return;
     const traceId = ctx.update.update_id;
 
-    this.logger.log({
-      message: `Processing /random command from user ${ctx.from?.id} in chat ${ctx.chat?.id}`,
-      traceId,
-    });
+    this.logger.log(
+      `Processing /random command from user ${ctx.from?.id} in chat ${ctx.chat?.id}`,
+      { traceId },
+    );
     await ctx.reply('Generating random page...');
     try {
       const wikiData = await this.wikipediaService.getRandomPage(traceId);
       await this.sendWikiImage(ctx, wikiData, traceId);
-      this.logger.log({
-        message: `Successfully processed /random for user ${ctx.from?.id}`,
-        traceId,
-      });
+      this.logger.log(
+        `Successfully processed /random for user ${ctx.from?.id}`,
+        {
+          traceId,
+        },
+      );
     } catch (e) {
-      this.logger.error({
-        message: `Error processing /random for user ${ctx.from?.id}: ${e.message}`,
-        traceId,
-        stack: e.stack,
-      });
+      this.logger.error(
+        `Error processing /random for user ${ctx.from?.id}: ${e.message}`,
+        { traceId, stack: e.stack },
+      );
       await ctx.reply('Error generating page.');
     }
   }
@@ -77,10 +78,10 @@ export class TelegramUpdate {
       await ctx.reply('Please provide a title. Usage: /wiki <title>');
       return;
     }
-    this.logger.log({
-      message: `Processing /wiki command for "${title}" from user ${ctx.from?.id} in chat ${ctx.chat?.id}`,
-      traceId,
-    });
+    this.logger.log(
+      `Processing /wiki command for "${title}" from user ${ctx.from?.id} in chat ${ctx.chat?.id}`,
+      { traceId },
+    );
     await ctx.reply(`Searching for "${title}"...`);
     try {
       const wikiData = await this.wikipediaService.getPageSummary(
@@ -88,16 +89,15 @@ export class TelegramUpdate {
         traceId,
       );
       await this.sendWikiImage(ctx, wikiData, traceId);
-      this.logger.log({
-        message: `Successfully processed /wiki for "${title}" for user ${ctx.from?.id}`,
-        traceId,
-      });
+      this.logger.log(
+        `Successfully processed /wiki for "${title}" for user ${ctx.from?.id}`,
+        { traceId },
+      );
     } catch (e) {
-      this.logger.error({
-        message: `Error processing /wiki for "${title}" for user ${ctx.from?.id}: ${e.message}`,
-        traceId,
-        stack: e.stack,
-      });
+      this.logger.error(
+        `Error processing /wiki for "${title}" for user ${ctx.from?.id}: ${e.message}`,
+        { traceId, stack: e.stack },
+      );
       await ctx.reply('Error fetching page. Check if the title is correct.');
     }
   }
@@ -107,8 +107,7 @@ export class TelegramUpdate {
     wikiData: any,
     traceId?: string | number,
   ) {
-    this.logger.log({
-      message: `Generating image for "${wikiData.title}"...`,
+    this.logger.debug(`Generating image for "${wikiData.title}"...`, {
       traceId,
     });
     const imageBuffer = await this.imageGeneratorService.generatePostImage(
@@ -123,9 +122,9 @@ export class TelegramUpdate {
     );
 
     await ctx.replyWithPhoto({ source: imageBuffer });
-    this.logger.log({
-      message: `Image for "${wikiData.title}" sent to user ${ctx.from?.id}`,
-      traceId,
-    });
+    this.logger.log(
+      `Image for "${wikiData.title}" sent to user ${ctx.from?.id}`,
+      { traceId },
+    );
   }
 }

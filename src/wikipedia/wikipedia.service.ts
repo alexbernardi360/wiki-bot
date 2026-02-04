@@ -30,8 +30,7 @@ export class WikipediaService {
   /** Fetches a random page summary from Wikipedia. */
   async getRandomPage(traceId?: string | number): Promise<WikiResponse> {
     const startTime = performance.now();
-    this.logger.log({
-      message: `Fetching random page from: ${this.WIKI_API}`,
+    this.logger.debug(`Fetching random page from: ${this.WIKI_API}`, {
       traceId,
     });
     try {
@@ -46,22 +45,26 @@ export class WikipediaService {
 
       const endTime = performance.now();
       const durationMs = Math.round(endTime - startTime);
-      this.logger.log({
-        message: `Random page "${data.title}" fetched in ${durationMs}ms`,
-        traceId,
-        durationMs,
-      });
+      this.logger.debug(
+        `Random page "${data.title}" fetched in ${durationMs}ms`,
+        {
+          traceId,
+          durationMs,
+        },
+      );
 
       return {
         ...data,
         extract: this.cleanText(data.extract),
       };
     } catch (error) {
-      this.logger.error({
-        message: `Error fetching data from Wikipedia: ${error.message}`,
-        traceId,
-        stack: error.stack,
-      });
+      this.logger.error(
+        `Error fetching data from Wikipedia: ${error.message}`,
+        {
+          traceId,
+          stack: error.stack,
+        },
+      );
 
       throw new InternalServerErrorException(
         'Failed to connect to Wikipedia API',
@@ -85,8 +88,7 @@ export class WikipediaService {
   ): Promise<WikiResponse> {
     const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${title}`;
     const startTime = performance.now();
-    this.logger.log({
-      message: `Fetching page summary for "${title}" from: ${url}`,
+    this.logger.debug(`Fetching page summary for "${title}" from: ${url}`, {
       traceId,
     });
     try {
@@ -101,22 +103,23 @@ export class WikipediaService {
 
       const endTime = performance.now();
       const durationMs = Math.round(endTime - startTime);
-      this.logger.log({
-        message: `Page summary for "${title}" fetched in ${durationMs}ms`,
-        traceId,
-        durationMs,
-      });
+      this.logger.debug(
+        `Page summary for "${title}" fetched in ${durationMs}ms`,
+        {
+          traceId,
+          durationMs,
+        },
+      );
 
       return {
         ...data,
         extract: this.cleanText(data.extract),
       };
     } catch (error) {
-      this.logger.error({
-        message: `Error fetching summary for title "${title}": ${error.message}`,
-        traceId,
-        stack: error.stack,
-      });
+      this.logger.error(
+        `Error fetching summary for title "${title}": ${error.message}`,
+        { traceId, stack: error.stack },
+      );
       throw new InternalServerErrorException(
         `Failed to fetch Wikipedia page summary for title: ${title}`,
       );

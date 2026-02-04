@@ -31,7 +31,7 @@ export class ImageGeneratorService {
       process.memoryUsage().heapUsed / 1024 / 1024,
     );
 
-    this.logger.log({
+    this.logger.debug({
       message: `Starting image generation for: "${data.title}"`,
       traceId,
       memoryMb: memoryBefore,
@@ -178,7 +178,7 @@ export class ImageGeneratorService {
       </html>
       `;
 
-      this.logger.log({
+      this.logger.debug({
         message: 'Rendering image with node-html-to-image...',
         traceId,
       });
@@ -206,8 +206,7 @@ export class ImageGeneratorService {
           timeout: 90000,
         },
         beforeScreenshot: async (page) => {
-          this.logger.log({
-            message: 'Puppeteer: beforeScreenshot phase',
+          this.logger.debug('Puppeteer: beforeScreenshot phase', {
             traceId,
           });
           await page.setUserAgent(this.userAgent);
@@ -220,28 +219,24 @@ export class ImageGeneratorService {
 
       const endTime = performance.now();
       const durationMs = Math.round(endTime - startTime);
-      const logData = {
-        message: `Image for "${data.title}" generated in ${durationMs}ms`,
-        traceId,
-        durationMs,
-      };
+      const message = `Image for "${data.title}" generated in ${durationMs}ms`;
+      const metadata = { traceId, durationMs };
 
       if (durationMs > 20000) {
-        this.logger.warn({
-          ...logData,
-          message: `Slow image generation detected: ${durationMs}ms`,
+        this.logger.warn(`Slow image generation detected: ${durationMs}ms`, {
+          ...metadata,
+          message, // Include full message in JSON
         });
       } else {
-        this.logger.log(logData);
+        this.logger.debug(message, metadata);
       }
 
       return image as Buffer;
     } catch (error) {
-      this.logger.error({
-        message: `Generation error for "${data.title}": ${error.message}. Puppeteer timeout: 90000ms`,
-        traceId,
-        stack: error.stack,
-      });
+      this.logger.error(
+        `Generation error for "${data.title}": ${error.message}. Puppeteer timeout: 90000ms`,
+        { traceId, stack: error.stack },
+      );
       throw new InternalServerErrorException('Post generation error');
     }
   }
