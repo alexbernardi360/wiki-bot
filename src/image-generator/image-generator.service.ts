@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import nodeHtmlToImage from 'node-html-to-image';
 import { getUserAgent } from '../common/utils/user-agent';
 
@@ -15,9 +19,23 @@ interface WikiPostData {
 
 @Injectable()
 export class ImageGeneratorService {
+  private readonly logger = new Logger(ImageGeneratorService.name);
   private readonly userAgent = getUserAgent();
 
-  async generatePostImage(data: WikiPostData): Promise<Buffer> {
+  async generatePostImage(
+    data: WikiPostData,
+    traceId?: string | number,
+  ): Promise<Buffer> {
+    const startTime = performance.now();
+    const memoryBefore = Math.round(
+      process.memoryUsage().heapUsed / 1024 / 1024,
+    );
+
+    this.logger.debug({
+      message: `Starting image generation for: "${data.title}"`,
+      traceId,
+      memoryMb: memoryBefore,
+    });
     try {
       const theme = data.theme || 'light';
 
@@ -160,6 +178,10 @@ export class ImageGeneratorService {
       </html>
       `;
 
+      this.logger.debug({
+        message: 'Rendering image with node-html-to-image...',
+        traceId,
+      });
       const image = await nodeHtmlToImage({
         html: htmlTemplate,
         content: {
@@ -179,12 +201,14 @@ export class ImageGeneratorService {
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--no-zygote',
-            '--single-process',
           ],
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
           timeout: 90000,
         },
         beforeScreenshot: async (page) => {
+          this.logger.debug('Puppeteer: beforeScreenshot phase', {
+            traceId,
+          });
           await page.setUserAgent(this.userAgent);
           await page.setExtraHTTPHeaders({
             'User-Agent': this.userAgent,
@@ -193,9 +217,26 @@ export class ImageGeneratorService {
         type: 'png',
       });
 
+      const endTime = performance.now();
+      const durationMs = Math.round(endTime - startTime);
+      const message = `Image for "${data.title}" generated in ${durationMs}ms`;
+      const metadata = { traceId, durationMs };
+
+      if (durationMs > 20000) {
+        this.logger.warn(`Slow image generation detected: ${durationMs}ms`, {
+          ...metadata,
+          message, // Include full message in JSON
+        });
+      } else {
+        this.logger.debug(message, metadata);
+      }
+
       return image as Buffer;
     } catch (error) {
-      console.error('Generation error:', error);
+      this.logger.error(
+        `Generation error for "${data.title}": ${error.message}. Puppeteer timeout: 90000ms`,
+        { traceId, stack: error.stack },
+      );
       throw new InternalServerErrorException('Post generation error');
     }
   }
