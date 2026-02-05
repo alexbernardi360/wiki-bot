@@ -5,8 +5,9 @@ body:
   - type: textarea
     id: feature-description
     attributes:
-      label: Is your feature request related to a problem?
-      description: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+      label: Feature Description / Motivation
+      description: A clear and concise description of what you want to achieve or what problem you're solving.
+      placeholder: What should this feature do and why is it useful?
     validations:
       required: true
   - type: textarea

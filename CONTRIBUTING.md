@@ -19,7 +19,7 @@ We use **GitHub Flow**. All changes should be made in a feature or bugfix branch
 1.  Clone the repository: `git clone https://github.com/alexbernardi360/wiki-bot.git`
 2.  Install dependencies: `npm install`
 3.  Set up environment variables: Copy `.env.example` to `.env` and fill in the values.
-4.  Run in development mode: `npm run dev`
+4.  Run in development mode: `npm run start:dev`
 
 ### 3. Commit Messages
 
