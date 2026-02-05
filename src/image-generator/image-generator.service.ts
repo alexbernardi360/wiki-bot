@@ -201,19 +201,17 @@ export class ImageGeneratorService {
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
+            '--no-zygote',
+            '--no-first-run',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            `--user-agent=${this.userAgent}`,
           ],
           executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
           timeout: 90000,
         },
-        beforeScreenshot: async (page) => {
-          this.logger.debug('Puppeteer: beforeScreenshot phase', {
-            traceId,
-          });
-          await page.setUserAgent(this.userAgent);
-          await page.setExtraHTTPHeaders({
-            'User-Agent': this.userAgent,
-          });
-        },
+        waitUntil: 'networkidle0',
         type: 'png',
       });
 
