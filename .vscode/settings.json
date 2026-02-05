@@ -16,5 +16,6 @@
     "Streamable",
     "tlwg",
     "zenhei"
-  ]
+  ],
+  "github-actions.workflows.pinned.workflows": []
 }
