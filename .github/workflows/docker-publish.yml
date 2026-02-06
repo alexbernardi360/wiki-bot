@@ -25,8 +25,32 @@ jobs:
       - name: Run tests
         run: npm run test
 
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get version from package.json
+        id: pkg_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Check version match
+        run: |
+          TAG_VERSION=${{ github.ref_name }}
+          # Remove 'v' prefix if present
+          CLEAN_TAG=${TAG_VERSION#v}
+          PKG_VERSION=${{ steps.pkg_version.outputs.version }}
+
+          echo "Tag version: $CLEAN_TAG"
+          echo "Package version: $PKG_VERSION"
+
+          if [ "$CLEAN_TAG" != "$PKG_VERSION" ]; then
+            echo "::error::Version mismatch! Tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+
   create-release:
-    needs: tests
+    needs: [tests, check-version]
     runs-on: ubuntu-latest
     permissions:
       contents: write
