@@ -1,16 +1,25 @@
-import { Update, Start, Command, Ctx, Message } from 'nestjs-telegraf';
-import { Context } from 'telegraf';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from '@nestjs/common';
-import { WikipediaService } from '../wikipedia/wikipedia.service';
+import {
+  Command,
+  Ctx,
+  InjectBot,
+  Message,
+  Start,
+  Update,
+} from 'nestjs-telegraf';
+import { Context, Telegraf } from 'telegraf';
+import * as pkg from '../../package.json';
 import { ImageGeneratorService } from '../image-generator/image-generator.service';
+import { WikipediaService } from '../wikipedia/wikipedia.service';
 
 @Update()
-export class TelegramUpdate {
+export class TelegramUpdate implements OnModuleInit {
   private readonly logger = new Logger(TelegramUpdate.name);
   private readonly adminChatId: number;
 
   constructor(
+    @InjectBot() private readonly bot: Telegraf<Context>,
     private readonly configService: ConfigService,
     private readonly wikipediaService: WikipediaService,
     private readonly imageGeneratorService: ImageGeneratorService,
@@ -18,6 +27,31 @@ export class TelegramUpdate {
     this.adminChatId = Number(
       this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID'),
     );
+  }
+
+  async onModuleInit() {
+    try {
+      this.logger.log(
+        `Updating bot description and bio to version v${pkg.version}`,
+      );
+
+      // Update "About" (long description)
+      await this.bot.telegram.setMyDescription(
+        `Wiki-Bot v${pkg.version} - Generate Wikipedia images directly on Telegram.`,
+      );
+
+      // Update "Bio" (short description)
+      await this.bot.telegram.setMyShortDescription(
+        `Wiki-Bot v${pkg.version} - Wikipedia image generator.`,
+      );
+
+      this.logger.log('Bot description and bio updated successfully');
+    } catch (e) {
+      this.logger.error(
+        `Failed to update bot information: ${e.message}`,
+        e.stack,
+      );
+    }
   }
 
   private isAdmin(ctx: Context): boolean {
