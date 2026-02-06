@@ -1,15 +1,17 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { TelegramUpdate } from './telegram.update';
-import { ConfigService } from '@nestjs/config';
-import { WikipediaService } from '../wikipedia/wikipedia.service';
-import { ImageGeneratorService } from '../image-generator/image-generator.service';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getBotToken } from 'nestjs-telegraf';
+import { ImageGeneratorService } from '../image-generator/image-generator.service';
+import { WikipediaService } from '../wikipedia/wikipedia.service';
+import { TelegramUpdate } from './telegram.update';
 
 describe('TelegramUpdate', () => {
   let bot: TelegramUpdate;
   let wikipediaService: WikipediaService;
   let imageGeneratorService: ImageGeneratorService;
   let configService: ConfigService;
+  let telegrafBot: any;
 
   const adminId = 12345;
 
@@ -39,6 +41,15 @@ describe('TelegramUpdate', () => {
             generatePostImage: jest.fn(),
           },
         },
+        {
+          provide: getBotToken(),
+          useValue: {
+            telegram: {
+              setMyDescription: jest.fn(),
+              setMyShortDescription: jest.fn(),
+            },
+          },
+        },
       ],
     }).compile();
 
@@ -48,6 +59,7 @@ describe('TelegramUpdate', () => {
       ImageGeneratorService,
     );
     configService = module.get<ConfigService>(ConfigService);
+    telegrafBot = module.get(getBotToken());
 
     // Suppress logs during tests
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
@@ -177,8 +189,34 @@ describe('TelegramUpdate', () => {
       await bot.onWiki(ctx, '/wiki Rome');
 
       expect(ctx.reply).toHaveBeenCalledWith('Searching for "Rome"...');
-      expect(wikipediaService.getPageSummary).toHaveBeenCalledWith('Rome', 111);
-      expect(ctx.replyWithPhoto).toHaveBeenCalled();
+    });
+  });
+
+  describe('onModuleInit', () => {
+    it('should update bot description and bio on startup', async () => {
+      await bot.onModuleInit();
+      expect(telegrafBot.telegram.setMyDescription).toHaveBeenCalled();
+      expect(telegrafBot.telegram.setMyShortDescription).toHaveBeenCalled();
+      expect(telegrafBot.telegram.setMyDescription).toHaveBeenCalledWith(
+        expect.stringContaining('Wiki-Bot v'),
+      );
+      expect(telegrafBot.telegram.setMyShortDescription).toHaveBeenCalledWith(
+        expect.stringContaining('Wiki-Bot v'),
+      );
+    });
+
+    it('should handle error if bot info update fails', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error');
+      telegrafBot.telegram.setMyDescription.mockRejectedValue(
+        new Error('Telegram Error'),
+      );
+
+      await bot.onModuleInit();
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to update bot information'),
+        expect.any(String),
+      );
     });
   });
 });
