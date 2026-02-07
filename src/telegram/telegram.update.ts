@@ -1,4 +1,4 @@
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Command,
@@ -14,7 +14,7 @@ import { ImageGeneratorService } from '../image-generator/image-generator.servic
 import { WikipediaService } from '../wikipedia/wikipedia.service';
 
 @Update()
-export class TelegramUpdate implements OnModuleInit {
+export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(TelegramUpdate.name);
   private readonly adminChatId: number;
 
@@ -49,6 +49,20 @@ export class TelegramUpdate implements OnModuleInit {
     } catch (e) {
       this.logger.error(
         `Failed to update bot information: ${e.message}`,
+        e.stack,
+      );
+    }
+  }
+
+  async onApplicationBootstrap() {
+    try {
+      this.logger.log('Sending startup notification to administrator');
+      const message = `🚀 Wiki-Bot is Online!\nVersion: v${pkg.version}\nStatus: Initialization completed successfully.`;
+      await this.bot.telegram.sendMessage(this.adminChatId, message);
+      this.logger.log('Startup notification sent successfully');
+    } catch (e) {
+      this.logger.error(
+        `Failed to send startup notification: ${e.message}`,
         e.stack,
       );
     }
