@@ -47,6 +47,7 @@ describe('TelegramUpdate', () => {
             telegram: {
               setMyDescription: jest.fn(),
               setMyShortDescription: jest.fn(),
+              sendMessage: jest.fn(),
             },
           },
         },
@@ -215,6 +216,30 @@ describe('TelegramUpdate', () => {
 
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to update bot information'),
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('onApplicationBootstrap', () => {
+    it('should send startup notification to administrator', async () => {
+      await bot.onApplicationBootstrap();
+      expect(telegrafBot.telegram.sendMessage).toHaveBeenCalledWith(
+        adminId,
+        expect.stringContaining('🚀 Wiki-Bot is Online!'),
+      );
+    });
+
+    it('should handle error if startup notification fails', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error');
+      telegrafBot.telegram.sendMessage.mockRejectedValue(
+        new Error('Telegram Error'),
+      );
+
+      await bot.onApplicationBootstrap();
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to send startup notification'),
         expect.any(String),
       );
     });
