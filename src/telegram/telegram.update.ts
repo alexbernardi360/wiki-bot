@@ -11,6 +11,7 @@ import {
 import { Context, Telegraf } from 'telegraf';
 import * as pkg from '../../package.json';
 import { ImageGeneratorService } from '../image-generator/image-generator.service';
+import { SystemInfoService } from '../system-info/system-info.service';
 import { WikipediaService } from '../wikipedia/wikipedia.service';
 
 @Update()
@@ -23,6 +24,7 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
     private readonly configService: ConfigService,
     private readonly wikipediaService: WikipediaService,
     private readonly imageGeneratorService: ImageGeneratorService,
+    private readonly systemInfoService: SystemInfoService,
   ) {
     this.adminChatId = Number(
       this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID'),
@@ -85,7 +87,14 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
   async start(@Ctx() ctx: Context) {
     if (!this.isAdmin(ctx)) return;
     this.logger.log(`Start command received from user ${ctx.from?.id}`);
-    await ctx.reply('Welcome! Use /random or /wiki <title> to test.');
+    const message =
+      `👋 <b>Welcome to Wiki-Bot!</b>\n\n` +
+      `I can help you generate images from Wikipedia articles.\n\n` +
+      `<b>Commands:</b>\n` +
+      `🎲 /random - Generate a random Wikipedia article\n` +
+      `🔍 /wiki &lt;title&gt; - Generate a specific Wikipedia article\n` +
+      `ℹ️ /status - Check bot status`;
+    await ctx.reply(message, { parse_mode: 'HTML' });
   }
 
   @Command('random')
@@ -147,6 +156,42 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
         { traceId, stack: e.stack },
       );
       await ctx.reply('Error fetching page. Check if the title is correct.');
+    }
+  }
+
+  @Command('status')
+  async onStatus(@Ctx() ctx: Context) {
+    if (!this.isAdmin(ctx)) return;
+    const traceId = ctx.update.update_id;
+
+    this.logger.log(
+      `Processing /status command from user ${ctx.from?.id} in chat ${ctx.chat?.id}`,
+      { traceId },
+    );
+
+    try {
+      const status = await this.systemInfoService.getSystemStatus();
+      const message =
+        `🤖 <b>Wiki-Bot Status</b>\n\n` +
+        `ℹ️ <b>Version:</b> ${status.botVersion}\n` +
+        `💻 <b>OS:</b> ${status.osInfo.distro} ${status.osInfo.release} (${status.osInfo.platform})\n` +
+        `🧠 <b>RAM:</b> ${status.memory.used} / ${status.memory.total}\n` +
+        `⚙️ <b>CPU:</b> ${status.cpu.load}% (${status.cpu.cores} cores)\n` +
+        `🌡️ <b>Temp:</b> ${status.cpu.temp}\n` +
+        `🖥️ <b>System Uptime:</b> ${status.uptime}\n` +
+        `🤖 <b>Bot Uptime:</b> ${status.botUptime}`;
+
+      await ctx.reply(message, { parse_mode: 'HTML' });
+      this.logger.log(
+        `Successfully processed /status for user ${ctx.from?.id}`,
+        { traceId },
+      );
+    } catch (e) {
+      this.logger.error(
+        `Error processing /status for user ${ctx.from?.id}: ${e.message}`,
+        { traceId, stack: e.stack },
+      );
+      await ctx.reply('Error retrieving system status.');
     }
   }
 
