@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { WikipediaModule } from './wikipedia/wikipedia.module';
 import { ImageGeneratorModule } from './image-generator/image-generator.module';
+import { SystemInfoModule } from './system-info/system-info.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { WikipediaModule } from './wikipedia/wikipedia.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { TelegramModule } from './telegram/telegram.module';
     WikipediaModule,
     ImageGeneratorModule,
     TelegramModule,
+    SystemInfoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

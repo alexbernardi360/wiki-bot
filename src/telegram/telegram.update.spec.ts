@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getBotToken } from 'nestjs-telegraf';
 import { ImageGeneratorService } from '../image-generator/image-generator.service';
+import { SystemInfoService } from '../system-info/system-info.service';
 import { WikipediaService } from '../wikipedia/wikipedia.service';
 import { TelegramUpdate } from './telegram.update';
 
@@ -10,6 +11,7 @@ describe('TelegramUpdate', () => {
   let bot: TelegramUpdate;
   let wikipediaService: WikipediaService;
   let imageGeneratorService: ImageGeneratorService;
+  let systemInfoService: SystemInfoService;
   let configService: ConfigService;
   let telegrafBot: any;
 
@@ -42,6 +44,12 @@ describe('TelegramUpdate', () => {
           },
         },
         {
+          provide: SystemInfoService,
+          useValue: {
+            getSystemStatus: jest.fn(),
+          },
+        },
+        {
           provide: getBotToken(),
           useValue: {
             telegram: {
@@ -59,6 +67,7 @@ describe('TelegramUpdate', () => {
     imageGeneratorService = module.get<ImageGeneratorService>(
       ImageGeneratorService,
     );
+    systemInfoService = module.get<SystemInfoService>(SystemInfoService);
     configService = module.get<ConfigService>(ConfigService);
     telegrafBot = module.get(getBotToken());
 
@@ -242,6 +251,58 @@ describe('TelegramUpdate', () => {
         expect.stringContaining('Failed to send startup notification'),
         expect.any(String),
       );
+    });
+  });
+
+  describe('onStatus', () => {
+    it('should return system status if user is admin', async () => {
+      const ctx = {
+        chat: { id: adminId },
+        update: { update_id: 111 },
+        from: { id: adminId },
+        reply: jest.fn(),
+      } as any;
+
+      const mockStatus = {
+        botVersion: '1.0.0',
+        osInfo: { distro: 'Ubuntu', release: '20.04', platform: 'linux' },
+        memory: { used: '1GB', total: '2GB' },
+        cpu: { load: '10', cores: 4, temp: '40' },
+        uptime: '1d 2h',
+      };
+
+      jest
+        .spyOn(systemInfoService, 'getSystemStatus')
+        .mockResolvedValue(mockStatus as any);
+
+      await bot.onStatus(ctx);
+
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Wiki-Bot Status'),
+        { parse_mode: 'HTML' },
+      );
+    });
+
+    it('should handle error if status retrieval fails', async () => {
+      const loggerSpy = jest.spyOn(Logger.prototype, 'error');
+      const ctx = {
+        chat: { id: adminId },
+        update: { update_id: 111 },
+        from: { id: adminId },
+        reply: jest.fn(),
+      } as any;
+
+      jest
+        .spyOn(systemInfoService, 'getSystemStatus')
+        .mockRejectedValue(new Error('System Error'));
+
+      await bot.onStatus(ctx);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error processing /status'),
+        expect.any(Object),
+      );
+      expect(ctx.reply).toHaveBeenCalledWith('Error retrieving system status.');
     });
   });
 });
