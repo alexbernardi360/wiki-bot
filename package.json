@@ -25,14 +25,17 @@
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.1.13",
     "@nestjs/platform-express": "^11.1.13",
-    "axios": "^1.13.4",
+    "@nestjs/typeorm": "^11.0.0",
+    "axios": "^1.13.5",
     "nest-winston": "^1.10.2",
     "nestjs-telegraf": "^2.9.1",
     "node-html-to-image": "^5.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sqlite3": "^5.1.7",
     "systeminformation": "^5.30.7",
     "telegraf": "^4.16.3",
+    "typeorm": "^0.3.28",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
   },
@@ -44,7 +47,7 @@
     "@nestjs/testing": "^11.1.13",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^24.10.11",
+    "@types/node": "^24.10.12",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
@@ -59,7 +62,10 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.55.0"
+  },
+  "overrides": {
+    "tar": "^7.5.7"
   },
   "jest": {
     "moduleFileExtensions": [

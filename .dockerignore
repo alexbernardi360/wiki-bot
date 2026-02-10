@@ -7,3 +7,5 @@ npm-debug.log
 Dockerfile
 docker-compose.yml
 test
+data
+database.sqlite
