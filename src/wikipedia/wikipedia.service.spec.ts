@@ -1,14 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { WikipediaService, WikiResponse } from './wikipedia.service';
 import { HttpService } from '@nestjs/axios';
-import { of, throwError } from 'rxjs';
 import { InternalServerErrorException, Logger } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { of, throwError } from 'rxjs';
+import { Repository } from 'typeorm';
+import { WikiHistory } from './entities/wiki-history.entity';
+import { WikipediaService, WikiResponse } from './wikipedia.service';
 
 describe('WikipediaService', () => {
   let service: WikipediaService;
   let httpService: HttpService;
+  let wikiHistoryRepository: Repository<WikiHistory>;
 
   const mockWikiResponse: WikiResponse = {
+    pageid: 12345,
     title: 'Test Page',
     extract: 'This is a test extract.',
     extract_html: '<p>This is a test extract.</p>',
@@ -29,11 +34,21 @@ describe('WikipediaService', () => {
             get: jest.fn(),
           },
         },
+        {
+          provide: getRepositoryToken(WikiHistory),
+          useValue: {
+            findOne: jest.fn(),
+            save: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<WikipediaService>(WikipediaService);
     httpService = module.get<HttpService>(HttpService);
+    wikiHistoryRepository = module.get<Repository<WikiHistory>>(
+      getRepositoryToken(WikiHistory),
+    );
 
     // Suppress logs during tests
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
@@ -56,6 +71,7 @@ describe('WikipediaService', () => {
           config: {} as any,
         }),
       );
+      jest.spyOn(wikiHistoryRepository, 'findOne').mockResolvedValue(null);
 
       const result = await service.getRandomPage('test-trace-id');
 
@@ -81,6 +97,67 @@ describe('WikipediaService', () => {
       );
     });
 
+    it('should retry if the page already exists in history', async () => {
+      const existingResponse = {
+        ...mockWikiResponse,
+        pageid: 111,
+        title: 'Old',
+      };
+      const newResponse = { ...mockWikiResponse, pageid: 222, title: 'New' };
+
+      const getSpy = jest.spyOn(httpService, 'get');
+      getSpy
+        .mockReturnValueOnce(
+          of({
+            data: existingResponse,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: {} as any,
+          }),
+        )
+        .mockReturnValueOnce(
+          of({
+            data: newResponse,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: {} as any,
+          }),
+        );
+
+      const findOneSpy = jest.spyOn(wikiHistoryRepository, 'findOne');
+      findOneSpy
+        .mockResolvedValueOnce({ id: 1, pageId: '111', title: 'Old' } as any)
+        .mockResolvedValueOnce(null);
+
+      const result = await service.getRandomPage();
+
+      expect(result.pageid).toBe(222);
+      expect(getSpy).toHaveBeenCalledTimes(2);
+      expect(findOneSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw InternalServerErrorException if max retries reached', async () => {
+      jest.spyOn(httpService, 'get').mockReturnValue(
+        of({
+          data: mockWikiResponse,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: {} as any,
+        }),
+      );
+      jest
+        .spyOn(wikiHistoryRepository, 'findOne')
+        .mockResolvedValue({ id: 1 } as any);
+
+      await expect(service.getRandomPage()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(httpService.get).toHaveBeenCalledTimes(5);
+    });
+
     it('should clean the extract text', async () => {
       const responseWithMessyText = {
         ...mockWikiResponse,
@@ -95,6 +172,7 @@ describe('WikipediaService', () => {
           config: {} as any,
         }),
       );
+      jest.spyOn(wikiHistoryRepository, 'findOne').mockResolvedValue(null);
 
       const result = await service.getRandomPage();
       expect(result.extract).toBe('This is messy text.');
@@ -131,6 +209,31 @@ describe('WikipediaService', () => {
       await expect(
         service.getPageSummary('Invalid_Page', 'test-trace-id'),
       ).rejects.toThrow(InternalServerErrorException);
+    });
+  });
+
+  describe('saveToHistory', () => {
+    it('should save page to history', async () => {
+      const saveSpy = jest
+        .spyOn(wikiHistoryRepository, 'save')
+        .mockResolvedValue({} as any);
+
+      await service.saveToHistory(123, 'Test Title', 'trace-id');
+
+      expect(saveSpy).toHaveBeenCalledWith({
+        pageId: '123',
+        title: 'Test Title',
+      });
+    });
+
+    it('should not throw error if save fails', async () => {
+      jest
+        .spyOn(wikiHistoryRepository, 'save')
+        .mockRejectedValue(new Error('Save failed'));
+
+      await expect(
+        service.saveToHistory(123, 'Test Title'),
+      ).resolves.not.toThrow();
     });
   });
 });

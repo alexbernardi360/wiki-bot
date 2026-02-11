@@ -35,6 +35,7 @@ describe('TelegramUpdate', () => {
           useValue: {
             getRandomPage: jest.fn(),
             getPageSummary: jest.fn(),
+            saveToHistory: jest.fn(),
           },
         },
         {
