@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ImageGeneratorModule } from './image-generator/image-generator.module';
@@ -11,6 +12,12 @@ import { WikipediaModule } from './wikipedia/wikipedia.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    TypeOrmModule.forRoot({
+      type: 'sqlite',
+      database: 'data/database.sqlite',
+      autoLoadEntities: true,
+      synchronize: true,
     }),
     WikipediaModule,
     ImageGeneratorModule,
