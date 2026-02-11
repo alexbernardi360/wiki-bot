@@ -215,6 +215,14 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
     );
 
     await ctx.replyWithPhoto({ source: imageBuffer });
+
+    // Save to history after successful send
+    await this.wikipediaService.saveToHistory(
+      wikiData.pageid,
+      wikiData.title,
+      traceId,
+    );
+
     this.logger.log(
       `Image for "${wikiData.title}" sent to user ${ctx.from?.id}`,
       { traceId },

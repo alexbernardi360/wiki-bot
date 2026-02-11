@@ -4,11 +4,15 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
+import { Repository } from 'typeorm';
 import { getUserAgent } from '../common/utils/user-agent';
+import { WikiHistory } from './entities/wiki-history.entity';
 
 /** Wikipedia API response structure */
 export interface WikiResponse {
+  pageid: number;
   title: string;
   extract: string;
   extract_html: string;
@@ -25,50 +29,107 @@ export class WikipediaService {
     'https://en.wikipedia.org/api/rest_v1/page/random/summary';
   private readonly userAgent = getUserAgent();
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    @InjectRepository(WikiHistory)
+    private readonly wikiHistoryRepository: Repository<WikiHistory>,
+  ) {}
 
-  /** Fetches a random page summary from Wikipedia. */
+  /** Fetches a random page summary from Wikipedia with deduplication logic. */
   async getRandomPage(traceId?: string | number): Promise<WikiResponse> {
-    const startTime = performance.now();
-    this.logger.debug(`Fetching random page from: ${this.WIKI_API}`, {
-      traceId,
-    });
-    try {
-      const { data } = await firstValueFrom(
-        this.httpService.get<WikiResponse>(this.WIKI_API, {
-          headers: {
-            'User-Agent': this.userAgent,
-            Accept: 'application/json',
-          },
-        }),
-      );
+    const maxRetries = 5;
+    let retries = 0;
 
-      const endTime = performance.now();
-      const durationMs = Math.round(endTime - startTime);
+    while (retries < maxRetries) {
+      const startTime = performance.now();
       this.logger.debug(
-        `Random page "${data.title}" fetched in ${durationMs}ms`,
-        {
-          traceId,
-          durationMs,
-        },
+        `Fetching random page (attempt ${retries + 1}/${maxRetries}) from: ${this.WIKI_API}`,
+        { traceId },
       );
 
-      return {
-        ...data,
-        extract: this.cleanText(data.extract),
-      };
+      try {
+        const { data } = await firstValueFrom(
+          this.httpService.get<WikiResponse>(this.WIKI_API, {
+            headers: {
+              'User-Agent': this.userAgent,
+              Accept: 'application/json',
+            },
+          }),
+        );
+
+        // Check if page was already posted
+        const exists = await this.wikiHistoryRepository.findOne({
+          where: { pageId: data.pageid.toString() },
+        });
+
+        if (exists) {
+          this.logger.warn(
+            `Page "${data.title}" (ID: ${data.pageid}) already exists in history. Retrying...`,
+            { traceId, pageid: data.pageid },
+          );
+          retries++;
+          continue;
+        }
+
+        const endTime = performance.now();
+        const durationMs = Math.round(endTime - startTime);
+        this.logger.debug(
+          `Random page "${data.title}" fetched in ${durationMs}ms`,
+          {
+            traceId,
+            durationMs,
+          },
+        );
+
+        return {
+          ...data,
+          extract: this.cleanText(data.extract),
+        };
+      } catch (error) {
+        this.logger.error(
+          `Error fetching data from Wikipedia: ${error.message}`,
+          {
+            traceId,
+            stack: error.stack,
+          },
+        );
+
+        throw new InternalServerErrorException(
+          'Failed to connect to Wikipedia API',
+        );
+      }
+    }
+
+    this.logger.error(
+      `Failed to fetch a unique random page after ${maxRetries} attempts`,
+      { traceId },
+    );
+    throw new InternalServerErrorException(
+      'Failed to fetch a unique random page from Wikipedia',
+    );
+  }
+
+  /** Saves a page to the history database. */
+  async saveToHistory(
+    pageId: string | number,
+    title: string,
+    traceId?: string | number,
+  ): Promise<void> {
+    try {
+      await this.wikiHistoryRepository.save({
+        pageId: pageId.toString(),
+        title,
+      });
+      this.logger.debug(`Page "${title}" (ID: ${pageId}) saved to history`, {
+        traceId,
+      });
     } catch (error) {
-      this.logger.error(
-        `Error fetching data from Wikipedia: ${error.message}`,
-        {
-          traceId,
-          stack: error.stack,
-        },
-      );
-
-      throw new InternalServerErrorException(
-        'Failed to connect to Wikipedia API',
-      );
+      this.logger.error(`Error saving page to history: ${error.message}`, {
+        traceId,
+        pageId,
+        title,
+      });
+      // We don't throw here to avoid breaking the bot flow if history saving fails
     }
   }
 
