@@ -36,6 +36,7 @@ describe('TelegramUpdate', () => {
             getRandomPage: jest.fn(),
             getPageSummary: jest.fn(),
             saveToHistory: jest.fn(),
+            isPageInHistory: jest.fn(),
           },
         },
         {
@@ -111,6 +112,7 @@ describe('TelegramUpdate', () => {
       } as any;
 
       const mockWikiData = {
+        pageid: 1,
         title: 'Test',
         extract_html: 'ext',
         originalimage: { source: 'src', width: 1, height: 1 },
@@ -129,7 +131,13 @@ describe('TelegramUpdate', () => {
       expect(ctx.reply).toHaveBeenCalledWith('Generating random page...');
       expect(wikipediaService.getRandomPage).toHaveBeenCalledWith(111);
       expect(imageGeneratorService.generatePostImage).toHaveBeenCalled();
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith({ source: mockImage });
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        { source: mockImage },
+        expect.objectContaining({
+          caption: '<b>Test</b>',
+          reply_markup: expect.any(Object),
+        }),
+      );
     });
 
     it('should do nothing if user is not admin', async () => {
@@ -189,7 +197,11 @@ describe('TelegramUpdate', () => {
         replyWithPhoto: jest.fn(),
       } as any;
 
-      const mockWikiData = { title: 'T', extract_html: 'e' };
+      const mockWikiData = {
+        pageid: 1,
+        title: 'Rome',
+        extract_html: 'e',
+      };
       jest
         .spyOn(wikipediaService, 'getPageSummary')
         .mockResolvedValue(mockWikiData as any);
@@ -200,6 +212,130 @@ describe('TelegramUpdate', () => {
       await bot.onWiki(ctx, '/wiki Rome');
 
       expect(ctx.reply).toHaveBeenCalledWith('Searching for "Rome"...');
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          caption: '<b>Rome</b>',
+          reply_markup: expect.any(Object),
+        }),
+      );
+    });
+
+    it('should generate preview only (no keyboard) if page is already in history', async () => {
+      const ctx = {
+        chat: { id: adminId },
+        update: { update_id: 111 },
+        from: { id: adminId },
+        reply: jest.fn(),
+        replyWithPhoto: jest.fn(),
+      } as any;
+
+      const mockWikiData = {
+        pageid: 1,
+        title: 'Rome',
+        extract_html: 'e',
+      };
+      jest
+        .spyOn(wikipediaService, 'getPageSummary')
+        .mockResolvedValue(mockWikiData as any);
+      jest.spyOn(wikipediaService, 'isPageInHistory').mockResolvedValue(true);
+      jest
+        .spyOn(imageGeneratorService, 'generatePostImage')
+        .mockResolvedValue(Buffer.from(''));
+
+      await bot.onWiki(ctx, '/wiki Rome');
+
+      expect(ctx.reply).not.toHaveBeenCalledWith(
+        expect.stringContaining('already in history'),
+        expect.any(Object),
+      );
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          caption: expect.stringContaining('Already in history:'),
+        }),
+      );
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({
+          caption: expect.stringContaining('Rome'),
+        }),
+      );
+      // Ensure reply_markup is NOT present in the params (since it's only added if showKeyboard is true)
+      const lastCall = ctx.replyWithPhoto.mock.calls[0][1];
+      expect(lastCall.reply_markup).toBeUndefined();
+    });
+  });
+
+  describe('onAccept', () => {
+    it('should save to history and update caption', async () => {
+      const ctx = {
+        chat: { id: adminId },
+        match: [null, '123', 'My Title'],
+        editMessageCaption: jest.fn(),
+        answerCbQuery: jest.fn(),
+      } as any;
+
+      await bot.onAccept(ctx);
+
+      expect(wikipediaService.saveToHistory).toHaveBeenCalledWith(
+        '123',
+        'My Title',
+      );
+      expect(ctx.editMessageCaption).toHaveBeenCalledWith(
+        expect.stringContaining('Approved:'),
+        expect.any(Object),
+      );
+      expect(ctx.editMessageCaption).toHaveBeenCalledWith(
+        expect.stringContaining('My Title'),
+        expect.objectContaining({
+          parse_mode: 'HTML',
+          reply_markup: undefined,
+        }),
+      );
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(
+        'Approved and saved to history!',
+      );
+    });
+
+    it('should do nothing if user is not admin', async () => {
+      const ctx = {
+        chat: { id: 99999 },
+        from: { id: 99999 },
+        answerCbQuery: jest.fn(),
+      } as any;
+
+      await bot.onAccept(ctx);
+
+      expect(wikipediaService.saveToHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onReject', () => {
+    it('should update caption to rejected with title', async () => {
+      const ctx = {
+        chat: { id: adminId },
+        match: [null, 'My Title'],
+        editMessageCaption: jest.fn(),
+        answerCbQuery: jest.fn(),
+      } as any;
+
+      await bot.onReject(ctx);
+
+      expect(ctx.editMessageCaption).toHaveBeenCalledWith(
+        expect.stringContaining('Rejected:'),
+        expect.any(Object),
+      );
+      expect(ctx.editMessageCaption).toHaveBeenCalledWith(
+        expect.stringContaining('My Title'),
+        expect.objectContaining({
+          parse_mode: 'HTML',
+          reply_markup: undefined,
+        }),
+      );
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(
+        'Discretionary rejection.',
+      );
     });
   });
 
