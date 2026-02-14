@@ -1,6 +1,7 @@
 import { Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  Action,
   Command,
   Ctx,
   InjectBot,
@@ -8,7 +9,7 @@ import {
   Start,
   Update,
 } from 'nestjs-telegraf';
-import { Context, Telegraf } from 'telegraf';
+import { Context, Markup, Telegraf } from 'telegraf';
 import * as pkg from '../../package.json';
 import { ImageGeneratorService } from '../image-generator/image-generator.service';
 import { SystemInfoService } from '../system-info/system-info.service';
@@ -145,6 +146,16 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
         title,
         traceId,
       );
+
+      // Check if page was already posted
+      const exists = await this.wikipediaService.isPageInHistory(
+        wikiData.pageid,
+      );
+      if (exists) {
+        await this.sendWikiImage(ctx, wikiData, traceId, false);
+        return;
+      }
+
       await this.sendWikiImage(ctx, wikiData, traceId);
       this.logger.log(
         `Successfully processed /wiki for "${title}" for user ${ctx.from?.id}`,
@@ -195,10 +206,53 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
     }
   }
 
+  @Action(/accept:(.+):(.+)/)
+  async onAccept(@Ctx() ctx: Context) {
+    if (!this.isAdmin(ctx)) return;
+    const match = (ctx as any).match;
+    const pageId = match[1];
+    const title = match[2];
+
+    this.logger.log(`Image accepted for "${title}" (ID: ${pageId})`);
+
+    try {
+      await this.wikipediaService.saveToHistory(pageId, title);
+      await ctx.editMessageCaption(
+        `✅ <b>Approved:</b> ${title}\n(Sent to Instagram staging)`,
+        { parse_mode: 'HTML', reply_markup: undefined },
+      );
+      await ctx.answerCbQuery('Approved and saved to history!');
+    } catch (e) {
+      this.logger.error(`Error in onAccept: ${e.message}`, e.stack);
+      await ctx.answerCbQuery('Error saving to history.');
+    }
+  }
+
+  @Action(/reject:(.+)/)
+  async onReject(@Ctx() ctx: Context) {
+    if (!this.isAdmin(ctx)) return;
+    const match = (ctx as any).match;
+    const title = match[1];
+
+    this.logger.log(`Image rejected for "${title}"`);
+
+    try {
+      await ctx.editMessageCaption(`❌ <b>Rejected:</b> ${title}`, {
+        parse_mode: 'HTML',
+        reply_markup: undefined,
+      });
+      await ctx.answerCbQuery('Discretionary rejection.');
+    } catch (e) {
+      this.logger.error(`Error in onReject: ${e.message}`, e.stack);
+      await ctx.answerCbQuery('Error updating message.');
+    }
+  }
+
   private async sendWikiImage(
     ctx: Context,
     wikiData: any,
     traceId?: string | number,
+    showKeyboard = true,
   ) {
     this.logger.debug(`Generating image for "${wikiData.title}"...`, {
       traceId,
@@ -214,17 +268,35 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
       traceId,
     );
 
-    await ctx.replyWithPhoto({ source: imageBuffer });
+    let caption = `<b>${wikiData.title}</b>`;
+    let extraParams: any = {
+      caption,
+      parse_mode: 'HTML',
+    };
 
-    // Save to history after successful send
-    await this.wikipediaService.saveToHistory(
-      wikiData.pageid,
-      wikiData.title,
-      traceId,
-    );
+    if (showKeyboard) {
+      // Truncate title for callback data limit (64 chars total per button)
+      const safeTitle =
+        wikiData.title.length > 40
+          ? wikiData.title.substring(0, 37) + '...'
+          : wikiData.title;
+
+      const keyboard = Markup.inlineKeyboard([
+        Markup.button.callback(
+          '✅ Accept',
+          `accept:${wikiData.pageid}:${safeTitle}`,
+        ),
+        Markup.button.callback('❌ Reject', `reject:${safeTitle}`),
+      ]);
+      extraParams = { ...extraParams, ...keyboard };
+    } else {
+      extraParams.caption = `⚠️ <b>Already in history:</b> ${wikiData.title}`;
+    }
+
+    await ctx.replyWithPhoto({ source: imageBuffer }, extraParams);
 
     this.logger.log(
-      `Image for "${wikiData.title}" sent to user ${ctx.from?.id}`,
+      `Image for "${wikiData.title}" sent ${showKeyboard ? 'with approval keyboard' : '(preview only)'} to user ${ctx.from?.id}`,
       { traceId },
     );
   }

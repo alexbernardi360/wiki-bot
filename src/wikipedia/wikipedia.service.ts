@@ -109,6 +109,16 @@ export class WikipediaService {
     );
   }
 
+  /**
+   * Checks if a page is already present in the history.
+   */
+  async isPageInHistory(pageId: string | number): Promise<boolean> {
+    const exists = await this.wikiHistoryRepository.findOne({
+      where: { pageId: pageId.toString() },
+    });
+    return !!exists;
+  }
+
   /** Saves a page to the history database. */
   async saveToHistory(
     pageId: string | number,
