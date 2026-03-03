@@ -135,7 +135,20 @@ describe('TelegramUpdate', () => {
         { source: mockImage },
         expect.objectContaining({
           caption: '<b>Test</b>',
-          reply_markup: expect.any(Object),
+          reply_markup: expect.objectContaining({
+            inline_keyboard: expect.arrayContaining([
+              expect.arrayContaining([
+                expect.objectContaining({ text: '✅ Accept' }),
+                expect.objectContaining({ text: '❌ Reject' }),
+              ]),
+              expect.arrayContaining([
+                expect.objectContaining({
+                  text: '🔄 Retry',
+                  callback_data: 'retry',
+                }),
+              ]),
+            ]),
+          }),
         }),
       );
     });
@@ -308,6 +321,50 @@ describe('TelegramUpdate', () => {
       await bot.onAccept(ctx);
 
       expect(wikipediaService.saveToHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onRetry', () => {
+    it('should trigger onRandom if user is admin', async () => {
+      const ctx = {
+        chat: { id: adminId },
+        from: { id: adminId },
+        answerCbQuery: jest.fn(),
+        reply: jest.fn(),
+        replyWithPhoto: jest.fn(),
+        update: { update_id: 111 },
+      } as any;
+
+      const mockWikiData = {
+        pageid: 1,
+        title: 'Test',
+        extract_html: 'ext',
+      };
+      jest
+        .spyOn(wikipediaService, 'getRandomPage')
+        .mockResolvedValue(mockWikiData as any);
+      jest
+        .spyOn(imageGeneratorService, 'generatePostImage')
+        .mockResolvedValue(Buffer.from(''));
+
+      await bot.onRetry(ctx);
+
+      expect(ctx.answerCbQuery).toHaveBeenCalledWith(
+        'Generating a new random page...',
+      );
+      expect(wikipediaService.getRandomPage).toHaveBeenCalled();
+    });
+
+    it('should do nothing if user is not admin', async () => {
+      const ctx = {
+        chat: { id: 99999 },
+        from: { id: 99999 },
+        answerCbQuery: jest.fn(),
+      } as any;
+
+      await bot.onRetry(ctx);
+
+      expect(ctx.answerCbQuery).not.toHaveBeenCalled();
     });
   });
 

@@ -1,5 +1,6 @@
 import { Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import {
   Action,
   Command,
@@ -248,15 +249,85 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
     }
   }
 
+  @Action('retry')
+  async onRetry(@Ctx() ctx: Context) {
+    if (!this.isAdmin(ctx)) return;
+    this.logger.log(`Retry action triggered by user ${ctx.from?.id}`);
+    try {
+      await ctx.answerCbQuery('Generating a new random page...');
+      // In Telegraf, we can't easily "forward" to onRandom because of context differences,
+      // so we call the logic directly or trigger onRandom if compatible.
+      return this.onRandom(ctx);
+    } catch (e) {
+      this.logger.error(`Error in onRetry: ${e.message}`, e.stack);
+      await ctx.answerCbQuery('Error triggering retry.');
+    }
+  }
+
+  @Cron(process.env.DAILY_SCHEDULE_TIME || '00 09 * * *')
+  async handleDailyRandom() {
+    this.logger.log('Running daily scheduled random Wikipedia image task');
+    const traceId = Date.now();
+    try {
+      const wikiData = await this.wikipediaService.getRandomPage(traceId);
+      await this.sendWikiImage(
+        this.adminChatId,
+        wikiData,
+        traceId,
+        true,
+        ' <b>Daily Random:</b> ',
+      );
+      this.logger.log('Daily scheduled task completed successfully');
+    } catch (e) {
+      this.logger.error(`Error in daily scheduled task: ${e.message}`, e.stack);
+    }
+  }
+
+  /**
+   * Generates the inline keyboard for accepting, rejecting, or retrying an image.
+   * Titles are truncated to 40 characters to fit within Telegram's callback data limit.
+   *
+   * @param title - The title of the Wikipedia page.
+   * @param pageid - The ID of the Wikipedia page.
+   * @returns A Telegram inline keyboard markup.
+   */
+  private buildApprovalKeyboard(title: string, pageid: number) {
+    const safeTitle =
+      title.length > 40 ? title.substring(0, 37) + '...' : title;
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback('✅ Accept', `accept:${pageid}:${safeTitle}`),
+        Markup.button.callback('❌ Reject', `reject:${safeTitle}`),
+      ],
+      [Markup.button.callback('🔄 Retry', 'retry')],
+    ]);
+  }
+
+  /**
+   * Generates and sends a Wikipedia image to a specified chat or context.
+   * Handles user context parsing, image generation, caption formatting, and keyboard attachment.
+   *
+   * @param target - The Telegraf Context object or a Telegram chat ID.
+   * @param wikiData - The Wikipedia page data containing title, extract, and image info.
+   * @param traceId - Optional trace ID for logging purposes.
+   * @param showKeyboard - Whether to show the approval/rejection keyboard (default: true).
+   * @param captionPrefix - Optional prefix to add before the caption text.
+   */
   private async sendWikiImage(
-    ctx: Context,
+    target: Context | number | string,
     wikiData: any,
     traceId?: string | number,
     showKeyboard = true,
+    captionPrefix = '',
   ) {
+    const isContext = typeof target === 'object';
+    const chatId = isContext ? (target as Context).chat?.id : target;
+    const fromId = isContext ? (target as Context).from?.id : 'system';
+
     this.logger.debug(`Generating image for "${wikiData.title}"...`, {
       traceId,
     });
+
     const imageBuffer = await this.imageGeneratorService.generatePostImage(
       {
         title: wikiData.title,
@@ -268,35 +339,36 @@ export class TelegramUpdate implements OnModuleInit, OnApplicationBootstrap {
       traceId,
     );
 
-    let caption = `<b>${wikiData.title}</b>`;
-    let extraParams: any = {
-      caption,
-      parse_mode: 'HTML',
-    };
+    const caption = showKeyboard
+      ? captionPrefix
+        ? `${captionPrefix}${wikiData.title}`
+        : `<b>${wikiData.title}</b>`
+      : `⚠️ <b>Already in history:</b> ${wikiData.title}`;
+
+    const extraParams: any = { caption, parse_mode: 'HTML' };
 
     if (showKeyboard) {
-      // Truncate title for callback data limit (64 chars total per button)
-      const safeTitle =
-        wikiData.title.length > 40
-          ? wikiData.title.substring(0, 37) + '...'
-          : wikiData.title;
-
-      const keyboard = Markup.inlineKeyboard([
-        Markup.button.callback(
-          '✅ Accept',
-          `accept:${wikiData.pageid}:${safeTitle}`,
-        ),
-        Markup.button.callback('❌ Reject', `reject:${safeTitle}`),
-      ]);
-      extraParams = { ...extraParams, ...keyboard };
-    } else {
-      extraParams.caption = `⚠️ <b>Already in history:</b> ${wikiData.title}`;
+      Object.assign(
+        extraParams,
+        this.buildApprovalKeyboard(wikiData.title, wikiData.pageid),
+      );
     }
 
-    await ctx.replyWithPhoto({ source: imageBuffer }, extraParams);
+    if (isContext) {
+      await (target as Context).replyWithPhoto(
+        { source: imageBuffer },
+        extraParams,
+      );
+    } else {
+      await this.bot.telegram.sendPhoto(
+        chatId as string | number,
+        { source: imageBuffer },
+        extraParams,
+      );
+    }
 
     this.logger.log(
-      `Image for "${wikiData.title}" sent ${showKeyboard ? 'with approval keyboard' : '(preview only)'} to user ${ctx.from?.id}`,
+      `Image for "${wikiData.title}" sent ${showKeyboard ? 'with approval keyboard' : '(preview only)'} to ${isContext ? 'user ' + fromId : 'chat ' + chatId}`,
       { traceId },
     );
   }
