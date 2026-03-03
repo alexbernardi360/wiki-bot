@@ -27,7 +27,6 @@
     "@nestjs/platform-express": "^11.1.15",
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/typeorm": "^11.0.0",
-    "@types/cron": "^2.4.3",
     "axios": "^1.13.6",
     "nest-winston": "^1.10.2",
     "nestjs-telegraf": "^2.9.1",
@@ -86,9 +85,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "optionalDependencies": {
-    "encoding": "*",
-    "iconv-lite": "^0.7.2"
   }
 }
