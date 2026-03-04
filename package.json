@@ -28,6 +28,8 @@
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/typeorm": "^11.0.0",
     "axios": "^1.13.6",
+    "encoding": "^0.1.13",
+    "iconv-lite": "^0.6.3",
     "nest-winston": "^1.10.2",
     "nestjs-telegraf": "^2.9.1",
     "node-html-to-image": "^5.0.0",
