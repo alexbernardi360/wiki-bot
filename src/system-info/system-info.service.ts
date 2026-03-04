@@ -37,7 +37,7 @@ export class SystemInfoService {
         memory: {
           total: this.formatBytes(mem.total),
           free: this.formatBytes(mem.free),
-          used: this.formatBytes(mem.used),
+          used: this.formatBytes(mem.total - mem.available),
           active: this.formatBytes(mem.active),
           available: this.formatBytes(mem.available),
         },
