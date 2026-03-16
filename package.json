@@ -28,13 +28,13 @@
     "@nestjs/typeorm": "^11.0.0",
     "axios": "^1.13.6",
     "encoding": "^0.1.13",
-    "iconv-lite": "^0.6.3",
+    "iconv-lite": "^0.7.2",
     "nest-winston": "^1.10.2",
     "nestjs-telegraf": "^2.9.1",
     "node-html-to-image": "^5.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "systeminformation": "^5.31.2",
     "telegraf": "^4.16.3",
     "typeorm": "^0.3.28",
@@ -64,8 +64,8 @@
     "typescript-eslint": "^8.56.1"
   },
   "overrides": {
-    "tar": "^7.5.8",
-    "ajv": "^8.18.0"
+    "ajv": "^8.18.0",
+    "sqlite3": "$sqlite3"
   },
   "jest": {
     "moduleFileExtensions": [
